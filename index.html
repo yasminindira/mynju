@@ -1,73 +1,48 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MYNJU — Cute Looks, Made for You</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="navbar">
-<a href="#" class="logo">MYN<span>J</span>U</a>
+<header class="nav">
+<a class="logo" href="#">MYN<span>J</span>U</a>
 <nav><a href="#home">Home</a><a href="#collection">Collection</a><a href="#about">About</a></nav>
-<button class="bag-btn" id="bagBtn">♡ <span id="bagCount">0</span></button>
+<button class="wishlist">♡ <b id="count">0</b></button>
 </header>
 
-<main id="home">
-<section class="hero">
-<div class="hero-content">
+<section class="hero" id="home">
+<div>
 <p class="eyebrow">NEW SEASON • 2026</p>
-<h1>Dress cute.<br><span>Feel you.</span></h1>
-<p class="hero-text">Outfit lucu, stylish, dan effortlessly cool untuk kamu yang ingin tampil jadi versi terbaik dirimu.</p>
-<div class="hero-buttons">
-<a href="#collection" class="btn btn-primary">Explore Collection →</a>
-<a href="#about" class="btn btn-outline">Our Story</a>
+<h1>Dress cute.<br><em>Feel you.</em></h1>
+<p class="lead">Outfit lucu, stylish, dan effortlessly cool untuk kamu yang ingin tampil jadi versi terbaik dirimu.</p>
+<div class="actions"><a class="primary" href="#collection">Explore Collection →</a><a class="secondary" href="#about">Our Story</a></div>
 </div>
-</div>
-<div class="hero-visual">
-<div class="decor decor-one">✦</div><div class="decor decor-two">♡</div>
-<div class="fashion-card">
-<div class="card-label">MYNJU GIRL</div>
-<div class="fashion-image"><div class="model-shape"></div><div class="dress-shape"></div></div>
-<div class="floating-tag"><small>LOOK OF</small><strong>THE DAY</strong></div>
-</div>
+<div class="hero-photo">
+<img src="https://images.pexels.com/photos/994523/pexels-photo-994523.jpeg?auto=compress&cs=tinysrgb&w=1000" alt="Fashion editorial" loading="eager">
+<span class="photo-label">MYNJU GIRL</span><span class="tag">LOOK OF<br><strong>THE DAY</strong></span>
 </div>
 </section>
 
-<div class="marquee"><div class="marquee-track">
-<span>♡ CUTE</span><span>✦ CONFIDENT</span><span>♡ EFFORTLESS</span><span>✦ YOUR STYLE</span>
-<span>♡ CUTE</span><span>✦ CONFIDENT</span><span>♡ EFFORTLESS</span><span>✦ YOUR STYLE</span>
-</div></div>
+<div class="ticker"><span>♡ CUTE</span><span>✦ CONFIDENT</span><span>♡ EFFORTLESS</span><span>✦ YOUR STYLE</span><span>♡ CUTE</span><span>✦ CONFIDENT</span><span>♡ EFFORTLESS</span><span>✦ YOUR STYLE</span></div>
 
 <section class="collection" id="collection">
-<div class="section-heading">
-<div><p class="eyebrow">SHOP YOUR STYLE</p><h2>Latest <span>Looks</span></h2></div>
-<p>Pieces made to mix, match,<br>and make them yours.</p>
-</div>
-<div class="products">
-<article class="product-card"><div class="product-image image-one"><span class="badge">NEW</span><button class="heart" data-product="1">♡</button><div class="clothing dress-pink"></div></div><div class="product-info"><div><h3>Rosé Mini Dress</h3><p>Soft Pink Collection</p></div><strong>Rp 289K</strong></div></article>
-<article class="product-card"><div class="product-image image-two"><span class="badge">BEST SELLER</span><button class="heart" data-product="2">♡</button><div class="clothing top-red"></div></div><div class="product-info"><div><h3>Cherry Top</h3><p>Everyday Essentials</p></div><strong>Rp 179K</strong></div></article>
-<article class="product-card"><div class="product-image image-three"><button class="heart" data-product="3">♡</button><div class="clothing skirt-cream"></div></div><div class="product-info"><div><h3>Creamy Skirt</h3><p>Soft Girl Collection</p></div><strong>Rp 219K</strong></div></article>
+<div class="heading"><div><p class="eyebrow">SHOP YOUR STYLE</p><h2>Latest <em>Looks</em></h2></div><p>Pieces made to mix, match,<br>and make them yours.</p></div>
+<div class="grid">
+<article><div class="pic"><img src="https://images.pexels.com/photos/985635/pexels-photo-985635.jpeg?auto=compress&cs=tinysrgb&w=900" alt="Pink fashion outfit" loading="lazy"><span class="badge">NEW</span><button class="heart">♡</button></div><div class="info"><div><h3>Rosé Mini Dress</h3><small>Soft Pink Collection</small></div><b>Rp 289K</b></div></article>
+<article><div class="pic"><img src="https://images.pexels.com/photos/1488463/pexels-photo-1488463.jpeg?auto=compress&cs=tinysrgb&w=900" alt="Fashion outfit" loading="lazy"><span class="badge">BEST SELLER</span><button class="heart">♡</button></div><div class="info"><div><h3>Cherry Top</h3><small>Everyday Essentials</small></div><b>Rp 179K</b></div></article>
+<article><div class="pic"><img src="https://images.pexels.com/photos/794063/pexels-photo-794063.jpeg?auto=compress&cs=tinysrgb&w=900" alt="Cream fashion outfit" loading="lazy"><button class="heart">♡</button></div><div class="info"><div><h3>Creamy Skirt</h3><small>Soft Girl Collection</small></div><b>Rp 219K</b></div></article>
 </div>
 </section>
 
-<section class="about" id="about">
-<div class="about-card"><p class="eyebrow">WHY MYNJU?</p><h2>Fashion should feel <span>like you.</span></h2>
-<p>MYNJU hadir untuk kamu yang suka bermain dengan warna, style, dan personality. Dari cute sampai effortlessly cool — pilih outfit yang paling menggambarkan kamu.</p>
-<a href="#collection" class="text-link">Find your style →</a></div>
-<div class="about-decoration"><div class="circle"><span>MYNJU</span><span>♡</span><span>YOUR STYLE</span></div></div>
-</section>
-</main>
+<section class="about" id="about"><div><p class="eyebrow">WHY MYNJU?</p><h2>Fashion should feel <em>like you.</em></h2><p class="lead">MYNJU hadir untuk kamu yang suka bermain dengan warna, style, dan personality. Dari cute sampai effortlessly cool — pilih outfit yang paling menggambarkan kamu.</p><a class="text" href="#collection">Find your style →</a></div><div class="circle">MYNJU<br>♡<small>YOUR STYLE</small></div></section>
 
-<footer>
-<div class="footer-brand"><a href="#" class="logo">MYN<span>J</span>U</a><p>Cute looks for girls<br>who know their worth.</p></div>
-<div class="footer-links"><a href="#home">Instagram</a><a href="#collection">Shop</a><a href="#about">About</a></div>
-<div class="copyright">© 2026 MYNJU. Made with ♡</div>
-</footer>
-<div class="notification" id="notification">♡ Added to your wishlist!</div>
+<footer><div><a class="logo" href="#">MYN<span>J</span>U</a><p>Cute looks for girls<br>who know their worth.</p></div><div class="links"><a href="#home">Instagram</a><a href="#collection">Shop</a><a href="#about">About</a></div><small>© 2026 MYNJU. Made with ♡</small></footer>
+<div class="toast" id="toast"></div>
 <script src="script.js"></script>
-</body>
-</html>
+</body></html>
