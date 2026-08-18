@@ -57,3 +57,83 @@ document.addEventListener("DOMContentLoaded",()=>{
    });
  }
 });
+
+
+/* MYNJU AUTO SCROLL
+   - Starts after 2 seconds without user activity.
+   - Scrolls slowly toward the bottom.
+   - At the bottom, jumps quickly back to the top.
+   - Continues until the user interacts again.
+*/
+document.addEventListener("DOMContentLoaded", () => {
+  const AUTO_SCROLL_DELAY = 2000; // 2 seconds
+  const AUTO_SCROLL_SPEED = 0.65; // pixels per animation frame (~39 px/sec at 60fps)
+  const BOTTOM_THRESHOLD = 4;
+
+  let idleTimer = null;
+  let autoScrollFrame = null;
+  let autoScrolling = false;
+  let activityLocked = false;
+
+  const stopAutoScroll = () => {
+    if (autoScrollFrame !== null) {
+      cancelAnimationFrame(autoScrollFrame);
+      autoScrollFrame = null;
+    }
+    autoScrolling = false;
+  };
+
+  const isAtBottom = () => {
+    const scrollTop = window.scrollY || window.pageYOffset;
+    const viewportBottom = scrollTop + window.innerHeight;
+    return viewportBottom >= document.documentElement.scrollHeight - BOTTOM_THRESHOLD;
+  };
+
+  const runAutoScroll = () => {
+    if (!autoScrolling) return;
+
+    if (isAtBottom()) {
+      // Fast reset to the very top, then immediately continue slowly downward.
+      window.scrollTo({ top: 0, behavior: "instant" });
+    } else {
+      window.scrollBy(0, AUTO_SCROLL_SPEED);
+    }
+
+    autoScrollFrame = requestAnimationFrame(runAutoScroll);
+  };
+
+  const startAutoScroll = () => {
+    if (autoScrolling || activityLocked) return;
+    autoScrolling = true;
+    runAutoScroll();
+  };
+
+  const resetIdleTimer = () => {
+    activityLocked = true;
+    stopAutoScroll();
+
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      activityLocked = false;
+      startAutoScroll();
+    }, AUTO_SCROLL_DELAY);
+  };
+
+  // Real user interactions pause auto-scroll and restart the 2-second countdown.
+  const userActivity = (event) => {
+    if (event.type === "scroll" && autoScrolling) return;
+    resetIdleTimer();
+  };
+
+  ["mousemove", "mousedown", "touchstart", "touchmove", "keydown", "click", "wheel"].forEach((eventName) => {
+    window.addEventListener(eventName, userActivity, { passive: true });
+  });
+
+  // A normal user scroll should also count as activity.
+  window.addEventListener("scroll", (event) => {
+    if (!autoScrolling) resetIdleTimer();
+  }, { passive: true });
+
+  // Start the first idle countdown when the page is loaded.
+  resetIdleTimer();
+});
