@@ -1,0 +1,8 @@
+MYNJU product photo sources
+
+Rosé Midi Dress: https://www.pexels.com/photo/a-hijab-woman-in-her-modesty-clothing-12208801/
+Cherry Top: https://www.pexels.com/photo/elegant-modest-fashion-with-hijab-outdoors-35324632/
+Creamy Skirt: https://www.pexels.com/photo/young-woman-in-modest-fashion-outdoors-30161477/
+
+The product images are hotlinked from Pexels so the ZIP does not need an assets folder.
+They are selected for modest-fashion styling and the product cards keep the focus on the outfit.
