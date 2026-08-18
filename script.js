@@ -59,21 +59,126 @@ document.addEventListener("DOMContentLoaded",()=>{
 });
 
 
-/* MYNJU AUTO SCROLL
-   - Starts after 2 seconds without user activity.
-   - Scrolls slowly toward the bottom.
-   - At the bottom, jumps quickly back to the top.
-   - Continues until the user interacts again.
-*/
+/* MYNJU AUTO SCROLL + KARAOKE READER */
 document.addEventListener("DOMContentLoaded", () => {
-  const AUTO_SCROLL_DELAY = 2000; // 2 seconds
-  const AUTO_SCROLL_SPEED = 0.65; // pixels per animation frame (~39 px/sec at 60fps)
+  const AUTO_SCROLL_DELAY = 2000;
+  const AUTO_SCROLL_SPEED = 1.3; // 2x faster
   const BOTTOM_THRESHOLD = 4;
 
   let idleTimer = null;
   let autoScrollFrame = null;
   let autoScrolling = false;
   let activityLocked = false;
+  let speechEnabled = true;
+  let currentUtterance = null;
+  let speechToken = 0;
+  let readingIndex = -1;
+
+  // Content that can be read aloud. Navigation/buttons are intentionally excluded.
+  const readSelector = [
+    ".hero .eyebrow", ".hero h1", ".hero .lead",
+    ".hero .actions a", "#collection h2", "#collection .section-sub",
+    "#collection .product-card", "#about h2", "#about p", "#about .about-card",
+    "footer p", "footer a"
+  ].join(",");
+
+  const readingEls = [...document.querySelectorAll(readSelector)]
+    .filter(el => el.textContent.trim())
+    .filter((el, i, arr) => !arr.some((other, j) => j < i && other.contains(el)));
+
+  // Wrap words so the active spoken word can be highlighted.
+  const prepareKaraoke = () => {
+    readingEls.forEach(el => {
+      if (el.dataset.karaokeReady) return;
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      const nodes = [];
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        if (node.nodeValue.trim()) nodes.push(node);
+      }
+      nodes.forEach(node => {
+        const frag = document.createDocumentFragment();
+        const parts = node.nodeValue.split(/(\s+)/);
+        parts.forEach(part => {
+          if (/^\s+$/.test(part)) {
+            frag.appendChild(document.createTextNode(part));
+          } else if (part) {
+            const span = document.createElement("span");
+            span.className = "karaoke-word";
+            span.textContent = part;
+            frag.appendChild(span);
+          }
+        });
+        node.parentNode.replaceChild(frag, node);
+      });
+      el.dataset.karaokeReady = "true";
+    });
+  };
+
+  const clearHighlights = () => {
+    document.querySelectorAll(".karaoke-word.active").forEach(w => w.classList.remove("active"));
+  };
+
+  const stopSpeech = () => {
+    speechToken++;
+    window.speechSynthesis?.cancel();
+    currentUtterance = null;
+    clearHighlights();
+  };
+
+  const getWords = el => [...el.querySelectorAll(".karaoke-word")];
+
+  const speakElement = (el, token) => {
+    if (!speechEnabled || !("speechSynthesis" in window) || token !== speechToken) return;
+    const words = getWords(el);
+    const text = words.map(w => w.textContent).join(" ").trim();
+    if (!text) return;
+
+    clearHighlights();
+    el.classList.add("karaoke-reading");
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = document.documentElement.lang === "id" ? "id-ID" : "en-US";
+    utterance.rate = 1.05;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    // Chrome/Edge usually provide word boundaries. We use the character index
+    // to synchronize the visual highlight with the spoken word.
+    utterance.onboundary = event => {
+      if (token !== speechToken || event.name !== "word") return;
+      let cursor = 0;
+      let active = -1;
+      for (let i = 0; i < words.length; i++) {
+        const start = cursor;
+        const end = start + words[i].textContent.length;
+        if (event.charIndex >= start && event.charIndex < end) {
+          active = i;
+          break;
+        }
+        cursor = end + 1;
+      }
+      words.forEach((w, i) => w.classList.toggle("active", i === active));
+    };
+
+    utterance.onend = () => {
+      if (token !== speechToken) return;
+      el.classList.remove("karaoke-reading");
+      clearHighlights();
+      currentUtterance = null;
+    };
+
+    utterance.onerror = () => {
+      if (token === speechToken) {
+        el.classList.remove("karaoke-reading");
+        clearHighlights();
+        currentUtterance = null;
+      }
+    };
+
+    currentUtterance = utterance;
+    window.speechSynthesis.speak(utterance);
+  };
 
   const stopAutoScroll = () => {
     if (autoScrollFrame !== null) {
@@ -81,22 +186,59 @@ document.addEventListener("DOMContentLoaded", () => {
       autoScrollFrame = null;
     }
     autoScrolling = false;
+    stopSpeech();
+    readingIndex = -1;
   };
 
   const isAtBottom = () => {
     const scrollTop = window.scrollY || window.pageYOffset;
-    const viewportBottom = scrollTop + window.innerHeight;
-    return viewportBottom >= document.documentElement.scrollHeight - BOTTOM_THRESHOLD;
+    return scrollTop + window.innerHeight >= document.documentElement.scrollHeight - BOTTOM_THRESHOLD;
+  };
+
+  const getVisibleReadingIndex = () => {
+    const viewportLine = window.innerHeight * 0.42;
+    let best = -1;
+    let bestDistance = Infinity;
+
+    readingEls.forEach((el, i) => {
+      const r = el.getBoundingClientRect();
+      const center = r.top + r.height / 2;
+      if (r.bottom > 50 && r.top < window.innerHeight - 30) {
+        const distance = Math.abs(center - viewportLine);
+        if (distance < bestDistance) {
+          bestDistance = distance;
+          best = i;
+        }
+      }
+    });
+    return best;
+  };
+
+  const syncReader = () => {
+    if (!autoScrolling || !speechEnabled) return;
+    const idx = getVisibleReadingIndex();
+    if (idx === -1 || idx === readingIndex) return;
+
+    readingIndex = idx;
+    stopSpeech();
+    const token = speechToken;
+    speakElement(readingEls[idx], token);
   };
 
   const runAutoScroll = () => {
     if (!autoScrolling) return;
 
     if (isAtBottom()) {
-      // Fast reset to the very top, then immediately continue slowly downward.
+      stopSpeech();
+      readingIndex = -1;
       window.scrollTo({ top: 0, behavior: "instant" });
+      // Let the browser paint the new position before restarting the reader.
+      requestAnimationFrame(() => {
+        if (autoScrolling) syncReader();
+      });
     } else {
       window.scrollBy(0, AUTO_SCROLL_SPEED);
+      syncReader();
     }
 
     autoScrollFrame = requestAnimationFrame(runAutoScroll);
@@ -105,6 +247,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const startAutoScroll = () => {
     if (autoScrolling || activityLocked) return;
     autoScrolling = true;
+    syncReader();
     runAutoScroll();
   };
 
@@ -119,21 +262,42 @@ document.addEventListener("DOMContentLoaded", () => {
     }, AUTO_SCROLL_DELAY);
   };
 
-  // Real user interactions pause auto-scroll and restart the 2-second countdown.
-  const userActivity = (event) => {
+  const userActivity = event => {
     if (event.type === "scroll" && autoScrolling) return;
     resetIdleTimer();
   };
 
-  ["mousemove", "mousedown", "touchstart", "touchmove", "keydown", "click", "wheel"].forEach((eventName) => {
-    window.addEventListener(eventName, userActivity, { passive: true });
+  ["mousemove", "mousedown", "touchstart", "touchmove", "keydown", "click", "wheel"].forEach(name => {
+    window.addEventListener(name, userActivity, { passive: true });
   });
 
-  // A normal user scroll should also count as activity.
-  window.addEventListener("scroll", (event) => {
+  window.addEventListener("scroll", () => {
     if (!autoScrolling) resetIdleTimer();
   }, { passive: true });
 
-  // Start the first idle countdown when the page is loaded.
+  // Small floating reader control.
+  const readerButton = document.createElement("button");
+  readerButton.className = "karaoke-toggle";
+  readerButton.type = "button";
+  readerButton.setAttribute("aria-label", "Toggle karaoke voice");
+  readerButton.innerHTML = '<span>🔊</span><b>VOICE ON</b>';
+  document.body.appendChild(readerButton);
+
+  readerButton.addEventListener("click", e => {
+    e.stopPropagation();
+    speechEnabled = !speechEnabled;
+    readerButton.classList.toggle("off", !speechEnabled);
+    readerButton.innerHTML = speechEnabled
+      ? '<span>🔊</span><b>VOICE ON</b>'
+      : '<span>🔇</span><b>VOICE OFF</b>';
+
+    if (!speechEnabled) stopSpeech();
+    else if (autoScrolling) {
+      readingIndex = -1;
+      syncReader();
+    }
+  });
+
+  prepareKaraoke();
   resetIdleTimer();
 });
