@@ -2,7 +2,7 @@
 
 // ========== CONFIG ==========
 // Ganti dengan URL Web App Apps Script kamu setelah deploy
-const API_URL = 'YOUR_APPS_SCRIPT_WEB_APP_URL_HERE';
+const API_URL = 'https://script.google.com/macros/s/AKfycbweGC1L5wj5AAL0WGQWo_SVmL1DAC8UCMaZCQMvY55nzE5q6Z9L3bsBQaE10FwUjiBKSg/exec';
 
 // ========== WISHLIST ==========
 const count = document.getElementById("count");
