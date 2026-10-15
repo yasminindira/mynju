@@ -58,6 +58,7 @@ function doPost(e) {
       case 'updateProduct': return jsonResponse(updateProduct(data.product));
       case 'deleteProduct': return jsonResponse(deleteProduct(data.id));
       case 'getOrders': return jsonResponse(getOrders());
+      case 'updateOrder': return jsonResponse(updateOrder(data.id, data.order));
       case 'deleteOrder': return jsonResponse(deleteOrder(data.id));
       default: return jsonResponse({ success: false, error: 'Unknown action' });
     }
@@ -261,7 +262,10 @@ function deleteProduct(id) {
 
 // ========== ORDERS ==========
 function logOrder(order) {
-  if (!order) return { success: false };
+  if (!order) return { success: false, error: 'Data pesanan tidak ditemukan.' };
+  if (!String(order.customerName || '').trim() || !String(order.phone || '').trim()) {
+    return { success: false, error: 'Nama dan nomor WhatsApp wajib diisi.' };
+  }
   const { orders } = ensureSheets();
   const id = Utilities.getUuid();
   orders.appendRow([
@@ -285,11 +289,35 @@ function getOrders() {
   return data.slice(1).reverse().map(row => rowToObject(headers, row)); // terbaru di atas
 }
 
+function updateOrder(id, updates) {
+  if (!id || !updates) return { success: false, error: 'Data pesanan tidak lengkap.' };
+  const { orders } = ensureSheets();
+  const data = orders.getDataRange().getValues();
+  const allowedStatuses = ['new', 'answered', 'processing', 'serviced'];
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]) === String(id)) {
+      const row = i + 1;
+      const currentName = String(data[i][2] || '');
+      const currentPhone = String(data[i][3] || '');
+      const currentNotes = String(data[i][7] || '');
+      const name = updates.customerName !== undefined ? String(updates.customerName).trim() : currentName;
+      const phone = updates.phone !== undefined ? String(updates.phone).trim() : currentPhone;
+      const notes = updates.notes !== undefined ? String(updates.notes).trim() : currentNotes;
+      const status = allowedStatuses.indexOf(String(updates.status)) >= 0 ? String(updates.status) : String(data[i][6] || 'new');
+      if (!name || !phone) return { success: false, error: 'Nama dan nomor WhatsApp tidak boleh kosong.' };
+      orders.getRange(row, 3, 1, 2).setValues([[name, phone]]);
+      orders.getRange(row, 7, 1, 2).setValues([[status, notes]]);
+      return { success: true };
+    }
+  }
+  return { success: false, error: 'Pesanan tidak ditemukan.' };
+}
+
 function deleteOrder(id) {
   const { orders } = ensureSheets();
   const data = orders.getDataRange().getValues();
   for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === id) {
+    if (String(data[i][0]) === String(id)) {
       orders.deleteRow(i + 1);
       return { success: true };
     }
@@ -302,6 +330,7 @@ function deleteOrder(id) {
 // Gunakan Server Key Sandbox untuk pengujian; jangan pernah menaruh Server Key di script.js.
 function createMidtransPayment(order) {
   if (!order || !order.items || !order.items.length) return { success: false, error: 'Keranjang kosong.' };
+  if (!String(order.customerName || '').trim() || !String(order.phone || '').trim()) return { success: false, error: 'Nama dan nomor WhatsApp wajib diisi.' };
   const serverKey = PROP.getProperty('MIDTRANS_SERVER_KEY');
   if (!serverKey) return { success: false, error: 'Midtrans belum dikonfigurasi. Atur MIDTRANS_SERVER_KEY di Apps Script atau pilih pembayaran manual.' };
 

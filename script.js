@@ -15,6 +15,10 @@ function showToast(msg) {
   setTimeout(() => toast.classList.remove("show"), 1800);
 }
 
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;", "'":"&#39;"}[ch]));
+}
+
 // ========== CONTACT FLOAT ==========
 const contactMain = document.getElementById("contactMain");
 const contactFloat = document.querySelector(".contact-float");
@@ -261,11 +265,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
   wa?.addEventListener("click", () => {
     if (!cart.length) { showToast("Tas belanja kamu masih kosong ♡"); return; }
-    const tot = currentTotal();
-    logOrderToBackend(cart, tot, {paymentMethod:"whatsapp", notes:"Pesanan langsung via WhatsApp"});
-    const lines = cart.map(i => `• ${i.name} x${i.qty} — ${money(i.price*i.qty)}`).join("\n");
-    const message = `Halo kak Dira, aku mau pesan dari MYNJU ♡\n\n${lines}\n\nTotal: ${money(tot)}\nMohon dibantu ya kak!`;
-    window.open("https://wa.me/6289516258263?text=" + encodeURIComponent(message), "_blank", "noopener");
+    // Semua jalur order melewati checkout agar nama dan nomor WhatsApp wajib diisi.
+    openCheckout();
+    const manualOption = document.querySelector('input[name="paymentMethod"][value="manual_qris"]');
+    if (manualOption) manualOption.checked = true;
+    document.getElementById("paymentNote").textContent = "Isi nama dan nomor WhatsApp. Pesanan akan dikonfirmasi melalui chat WhatsApp MYNJU.";
   });
 
   renderCart();
@@ -282,35 +286,52 @@ async function logOrderToBackend(cart, total, details = {}) {
   } catch (e) { console.warn("Order belum tercatat di backend", e); }
 }
 
-// ========== ADMIN PANEL (4x click logo) ==========
+// ========== ADMIN PANEL ==========
+let adminToken = null;
+const adminOverlay = document.getElementById("adminOverlay");
+const adminPasswordInput = document.getElementById("adminPassword");
+
+function openAdminLogin() {
+  if (!adminOverlay) return;
+  adminOverlay.style.display = "flex";
+  document.getElementById("adminLogin").style.display = "block";
+  document.getElementById("adminDashboard").style.display = "none";
+  document.getElementById("loginError").textContent = "";
+  adminPasswordInput.value = "";
+  setTimeout(() => adminPasswordInput.focus(), 50);
+}
+
+document.getElementById("adminMenuButton")?.addEventListener("click", openAdminLogin);
+// Logo shortcut remains available as a secondary way to open the admin login.
 let clickCount = 0;
 let clickTimer = null;
-let adminToken = null;
-
 document.getElementById("siteLogo")?.addEventListener("click", (e) => {
-  e.preventDefault();
   clickCount++;
   clearTimeout(clickTimer);
   clickTimer = setTimeout(() => { clickCount = 0; }, 2000);
   if (clickCount >= 4) {
+    e.preventDefault();
     clickCount = 0;
-    document.getElementById("adminOverlay").style.display = "flex";
-    document.getElementById("adminPassword").focus();
+    openAdminLogin();
   }
 });
 
 document.getElementById("adminClose")?.addEventListener("click", () => {
-  document.getElementById("adminOverlay").style.display = "none";
+  adminOverlay.style.display = "none";
+});
+adminOverlay?.addEventListener("click", e => {
+  if (e.target === adminOverlay) adminOverlay.style.display = "none";
 });
 
-document.getElementById("adminLoginBtn")?.addEventListener("click", async () => {
-  const pass = document.getElementById("adminPassword").value;
+async function performAdminLogin() {
+  const pass = adminPasswordInput.value;
   const errEl = document.getElementById("loginError");
   errEl.textContent = "";
+  if (!pass) { errEl.textContent = "Masukkan password admin dulu ya."; return; }
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({ action: "login", password: pass })
     });
     const data = await res.json();
@@ -322,11 +343,15 @@ document.getElementById("adminLoginBtn")?.addEventListener("click", async () => 
       loadAdminOrders();
     } else {
       errEl.textContent = data.error || "Password salah";
+      adminPasswordInput.select();
     }
   } catch (e) {
-    errEl.textContent = "Gagal koneksi ke backend";
+    errEl.textContent = "Gagal koneksi ke backend. Periksa URL Apps Script.";
   }
-});
+}
+
+document.getElementById("adminLoginBtn")?.addEventListener("click", performAdminLogin);
+adminPasswordInput?.addEventListener("keydown", e => { if (e.key === "Enter") performAdminLogin(); });
 
 // Tabs
 document.querySelectorAll(".admin-tab").forEach(tab => {
@@ -358,7 +383,7 @@ document.getElementById("productForm")?.addEventListener("submit", async (e) => 
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({ action, token: adminToken, product })
     });
     const data = await res.json();
@@ -384,7 +409,7 @@ async function loadAdminProducts() {
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({ action: "getAllProducts", token: adminToken })
     });
     const products = await res.json();
@@ -431,7 +456,7 @@ async function deleteProduct(id) {
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({ action: "deleteProduct", token: adminToken, id })
     });
     const data = await res.json();
@@ -448,43 +473,78 @@ async function loadAdminOrders() {
   try {
     const res = await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify({ action: "getOrders", token: adminToken })
     });
     const orders = await res.json();
+    if (!Array.isArray(orders)) throw new Error(orders.error || "Data pesanan tidak bisa dibaca.");
     const list = document.getElementById("orderList");
+    const summary = document.getElementById("orderStatusSummary");
+    const countStatus = status => orders.filter(o => (o.status || "new") === status).length;
+    summary.innerHTML = `
+      <span class="order-status-pill">Baru: ${countStatus("new")}</span>
+      <span class="order-status-pill">Sudah dijawab: ${countStatus("answered")}</span>
+      <span class="order-status-pill">Sedang dilayani: ${countStatus("processing")}</span>
+      <span class="order-status-pill">Selesai: ${countStatus("serviced")}</span>`;
     if (!orders.length) {
-      list.innerHTML = "<p>Belum ada pesanan.</p>";
+      list.innerHTML = "<p>Belum ada pesanan. Pesanan checkout akan muncul di sini ♡</p>";
       return;
     }
-    list.innerHTML = orders.map(o => `
-      <div class="admin-item">
-        <div>
-          <strong>${o.id.slice(0,8)}...</strong> — ${new Date(o.date).toLocaleString("id-ID")}<br>
-          Total: Rp${Number(o.total).toLocaleString("id-ID")} — Status: ${o.status || "new"}
-          <small>${o.items ? JSON.parse(o.items || "[]").map(i => i.name + " x" + i.qty).join(", ") : ""}</small>
+    const statusLabels = {new:"Baru masuk", answered:"Sudah dijawab", processing:"Sedang dilayani", serviced:"Selesai dilayani"};
+    list.innerHTML = orders.map(o => {
+      let itemText = "";
+      try { const parsed = Array.isArray(o.items) ? o.items : JSON.parse(o.items || "[]"); itemText = parsed.map(i => `${escapeHTML(i.name)} × ${Number(i.qty)||1}`).join(", "); }
+      catch (_) { itemText = escapeHTML(o.items || ""); }
+      const safeId = escapeHTML(o.id);
+      const dateLabel = o.date && !isNaN(new Date(o.date).getTime()) ? new Date(o.date).toLocaleString("id-ID") : "Tanggal tidak tersedia";
+      return `<article class="admin-item admin-order-item" data-order-id="${safeId}">
+        <div class="admin-order-top"><div><strong>Pesanan ${safeId.slice(0,8)}…</strong><br><small>${escapeHTML(dateLabel)}</small></div><strong>Rp${Number(o.total||0).toLocaleString("id-ID")}</strong></div>
+        <p class="admin-order-items">Produk: ${itemText || "Detail produk tidak tersedia"}</p>
+        <div class="admin-order-fields">
+          <label>Nama pembeli<input class="order-name" value="${escapeHTML(o.customerName || "")}" required></label>
+          <label>Nomor WhatsApp<input class="order-phone" value="${escapeHTML(o.phone || "")}" inputmode="tel" required></label>
+          <label>Status tindak lanjut<select class="order-status">${Object.entries(statusLabels).map(([value,label]) => `<option value="${value}" ${(o.status||"new")===value?"selected":""}>${label}</option>`).join("")}</select></label>
+          <label class="wide">Catatan / alamat<textarea class="order-notes" rows="2">${escapeHTML(o.notes || "")}</textarea></label>
         </div>
-        <div>
-          <button class="btn-delete" data-id="${o.id}">Hapus</button>
-        </div>
-      </div>
-    `).join("");
-    list.querySelectorAll(".btn-delete").forEach(btn => {
-      btn.onclick = () => deleteOrder(btn.dataset.id);
-    });
-  } catch (e) { console.error(e); }
+        <div class="admin-order-actions"><button type="button" class="btn-save-order" data-id="${safeId}">Simpan perubahan</button><button type="button" class="btn-delete-order" data-id="${safeId}">Hapus pesanan</button></div>
+      </article>`;
+    }).join("");
+    list.querySelectorAll(".btn-save-order").forEach(btn => btn.onclick = () => saveOrder(btn.dataset.id));
+    list.querySelectorAll(".btn-delete-order").forEach(btn => btn.onclick = () => deleteOrder(btn.dataset.id));
+  } catch (e) {
+    console.error(e);
+    document.getElementById("orderList").innerHTML = `<p class="error">${escapeHTML(e.message || "Gagal memuat pesanan")}</p>`;
+  }
+}
+
+async function saveOrder(id) {
+  const card = document.querySelector(`.admin-order-item[data-order-id="${CSS.escape(id)}"]`);
+  if (!card) return;
+  const order = {
+    customerName: card.querySelector(".order-name").value.trim(),
+    phone: card.querySelector(".order-phone").value.trim(),
+    status: card.querySelector(".order-status").value,
+    notes: card.querySelector(".order-notes").value.trim()
+  };
+  if (!order.customerName || !order.phone) { alert("Nama dan nomor WhatsApp wajib diisi."); return; }
+  try {
+    const res = await fetch(API_URL, { method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:JSON.stringify({action:"updateOrder", token:adminToken, id, order}) });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Perubahan belum tersimpan.");
+    showToast("Pesanan berhasil diperbarui ♡");
+    loadAdminOrders();
+  } catch (e) { alert(e.message || "Gagal menyimpan pesanan."); }
 }
 
 async function deleteOrder(id) {
-  if (!confirm("Hapus pesanan ini?")) return;
+  if (!confirm("Hapus pesanan ini secara permanen?")) return;
   try {
-    await fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "deleteOrder", token: adminToken, id })
-    });
+    const res = await fetch(API_URL, { method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:JSON.stringify({action:"deleteOrder", token:adminToken, id}) });
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || "Gagal menghapus pesanan.");
+    showToast("Pesanan dihapus");
     loadAdminOrders();
-  } catch (e) {}
+  } catch (e) { alert(e.message || "Gagal hapus pesanan."); }
 }
 
 // ========== AUTO SCROLL (preserved) ==========

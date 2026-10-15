@@ -12,10 +12,10 @@ Website boutique MYNJU yang sudah di-upgrade supaya produk & pesanan disimpan di
 
 ## Fitur baru
 - Produk di-load dinamis dari Google Sheets
-- Admin Panel (klik logo **MYNJU** 4x berturut-turut)
+- Admin Panel (tombol **Admin ♡** di header; shortcut logo 4x tetap tersedia)
 - Password admin: `Bismillaah` (disimpan di Script Properties, tidak ada di GitHub)
 - CRUD Produk (Create, Read, Update, Delete)
-- Lihat & hapus pesanan (otomatis tercatat saat klik Order via WhatsApp)
+- Lihat, edit, ubah status, dan hapus pesanan; nama dan nomor WhatsApp wajib diminta saat checkout
 - Sheet + header otomatis dibuat oleh script (tidak perlu bikin manual)
 
 ---
@@ -111,3 +111,10 @@ Website kini menyediakan checkout dengan pilihan pembayaran manual dan pembayara
 - Produk koleksi tambahan dibuat otomatis saat endpoint `getProducts` dipanggil; tunggu sebentar lalu refresh halaman.
 - Gambar contoh memakai foto produk dari Unsplash atau gambar lama dalam ZIP. Ganti dengan foto produk milik MYNJU dari Admin Panel untuk hasil yang akurat.
 - Nama kategori yang tampil di filter berasal dari produk aktif di database.
+
+
+## Upgrade Admin & Pesanan
+- Tombol Admin tampil di header desktop maupun ponsel. Password default `Bismillaah` disimpan di Script Properties setelah fungsi `initialize()` dijalankan.
+- Admin dapat melihat pesanan, mengubah nama/nomor WhatsApp/catatan, mengubah status menjadi **Baru masuk**, **Sudah dijawab**, **Sedang dilayani**, atau **Selesai dilayani**, dan menghapus pesanan.
+- CRUD produk (tambah, lihat, edit, hapus) tetap tersedia. Perubahan backend `Code.gs` wajib ditempel ke project Apps Script dan deployment Web App diperbarui ke versi terbaru. URL `/exec` tetap sama jika deployment yang sama diedit.
+- Tombol “Pesan langsung via WhatsApp” kini membuka checkout terlebih dahulu agar nama dan nomor WhatsApp dikumpulkan dan pesanan tercatat sebelum chat WhatsApp dibuka.
