@@ -84,3 +84,30 @@ PropertiesService.getScriptProperties().setProperty('ADMIN_PASSWORD', 'PasswordB
 ```
 
 Selamat mencoba! ♡
+
+
+## Upgrade Checkout & Pembayaran (versi revisi)
+
+Website kini menyediakan checkout dengan pilihan pembayaran manual dan pembayaran online Midtrans. Katalog baru (Tunik, Abaya, Dress, Rok, Blouse, Kemeja, Outer/Cardigan, Setelan Matching) ditambahkan otomatis ke Sheet `Products` berdasarkan nama produk ketika backend menerima permintaan produk. Harga, nama, kategori, dan foto bisa diedit dari Admin Panel.
+
+### Pembayaran manual
+- Pembeli mengisi nama, nomor WhatsApp, dan alamat, lalu memilih QRIS manual atau transfer bank/e-wallet.
+- Website membuka chat WhatsApp MYNJU dengan ringkasan pesanan dan meminta instruksi pembayaran resmi.
+- **Belum ada QRIS/rekening yang ditanam di website**, supaya tidak menggunakan detail pembayaran yang keliru. Kirimkan QRIS/rekening resmi ke pelanggan melalui WhatsApp, atau tambahkan detail resmi milik toko sebelum mengubah alur ini.
+
+### Midtrans (uji Sandbox)
+1. Buat/masuk akun Midtrans dan buka bagian **Sandbox** untuk mengambil **Server Key Sandbox**. Jangan pernah memasukkan Server Key ke `script.js` atau file publik.
+2. Buka project Google Apps Script yang menjadi backend MYNJU.
+3. Di **Project Settings → Script Properties**, tambahkan:
+   - `MIDTRANS_SERVER_KEY` = Server Key Sandbox milik toko.
+   - `MIDTRANS_IS_PRODUCTION` = `false` untuk pengujian Sandbox.
+4. Pastikan Apps Script mengizinkan akses eksternal (`UrlFetchApp`) saat diminta, lalu **Deploy → Manage deployments → Edit** dan terbitkan versi baru Web App. URL `/exec` harus tetap sesuai dengan `API_URL` di `script.js`.
+5. Tes dari website menggunakan produk yang ada di Sheet. Pilih **Pembayaran online otomatis**. Browser akan diarahkan ke halaman pembayaran Midtrans Sandbox. Gunakan data/metode uji dari dokumentasi resmi Midtrans Sandbox, bukan uang sungguhan.
+6. Untuk transaksi nyata, akun Midtrans harus aktif/terverifikasi, ganti `MIDTRANS_SERVER_KEY` dengan Server Key Production dan set `MIDTRANS_IS_PRODUCTION` menjadi `true`. Deploy ulang. Jangan aktifkan production sebelum pengujian berhasil.
+
+**Penting:** GitHub Pages hanya meng-host frontend. Pembuatan transaksi Midtrans dilakukan di Apps Script agar Server Key tidak terbuka. Status pembayaran otomatis belum disinkronkan kembali ke status order di panel admin/webhook; cek status transaksi melalui dashboard Midtrans sebelum menandai pesanan lunas atau mengirim barang. Jangan menganggap pelanggan sudah membayar hanya karena halaman pembayaran terbuka.
+
+### Produk dan foto
+- Produk koleksi tambahan dibuat otomatis saat endpoint `getProducts` dipanggil; tunggu sebentar lalu refresh halaman.
+- Gambar contoh memakai foto produk dari Unsplash atau gambar lama dalam ZIP. Ganti dengan foto produk milik MYNJU dari Admin Panel untuk hasil yang akurat.
+- Nama kategori yang tampil di filter berasal dari produk aktif di database.

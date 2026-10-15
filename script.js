@@ -83,11 +83,11 @@ function renderProducts(products) {
 function buildFilters(products) {
   const container = document.getElementById("categoryFilters");
   const cats = [...new Set(products.map(p => p.category).filter(Boolean))];
-  // Keep All and New, add others
+  const labels = {tunik:'Tunik',abaya:'Abaya',dress:'Dress',rok:'Rok',blouse:'Blouse',kemeja:'Kemeja',outer:'Outer / Cardigan',setelan:'Setelan Matching',top:'Top',skirt:'Rok',other:'Lainnya'};
   container.innerHTML = `
-    <button class="shop-filter active" data-filter="all">All</button>
-    <button class="shop-filter" data-filter="new">New</button>
-    ${cats.map(c => `<button class="shop-filter" data-filter="${c}">${c.charAt(0).toUpperCase()+c.slice(1)}</button>`).join('')}
+    <button class="shop-filter active" data-filter="all">Semua</button>
+    <button class="shop-filter" data-filter="new">Terbaru</button>
+    ${cats.map(c => `<button class="shop-filter" data-filter="${c}">${labels[c] || c.charAt(0).toUpperCase()+c.slice(1)}</button>`).join('')}
   `;
   bindFilters();
 }
@@ -132,6 +132,14 @@ document.addEventListener("DOMContentLoaded", () => {
   const hc = document.getElementById("cartHeaderCount");
   const total = document.getElementById("cartTotal");
   const wa = document.getElementById("cartWhatsApp");
+  const checkoutBtn = document.getElementById("cartCheckout");
+  const paymentOverlay = document.getElementById("paymentOverlay");
+  const paymentClose = document.getElementById("paymentClose");
+  const checkoutForm = document.getElementById("checkoutForm");
+  const checkoutTotal = document.getElementById("checkoutTotal");
+  const paymentNote = document.getElementById("paymentNote");
+  const checkoutStatus = document.getElementById("checkoutStatus");
+  const checkoutSubmit = document.getElementById("checkoutSubmit");
   if (!d) return;
 
   let cart = [];
@@ -163,6 +171,63 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function openCart() { d.classList.add("open"); d.setAttribute("aria-hidden", "false"); }
   function closeCart() { d.classList.remove("open"); d.setAttribute("aria-hidden", "true"); }
+  function currentTotal() { return cart.reduce((sum, item) => sum + item.price * item.qty, 0); }
+  function openCheckout() {
+    if (!cart.length) { showToast("Tas belanja kamu masih kosong ♡"); return; }
+    checkoutTotal.textContent = money(currentTotal());
+    checkoutStatus.textContent = "";
+    paymentOverlay.classList.add("open");
+    paymentOverlay.setAttribute("aria-hidden", "false");
+  }
+  function closeCheckout() {
+    paymentOverlay.classList.remove("open");
+    paymentOverlay.setAttribute("aria-hidden", "true");
+  }
+  checkoutBtn?.addEventListener("click", openCheckout);
+  paymentClose?.addEventListener("click", closeCheckout);
+  paymentOverlay?.addEventListener("click", e => { if (e.target === paymentOverlay) closeCheckout(); });
+  document.querySelectorAll('input[name="paymentMethod"]').forEach(radio => radio.addEventListener("change", () => {
+    const method = document.querySelector('input[name="paymentMethod"]:checked')?.value;
+    paymentNote.textContent = method === "gateway"
+      ? "Kamu akan diarahkan ke halaman pembayaran Midtrans jika konfigurasi toko sudah aktif. Gunakan Sandbox untuk pengujian."
+      : "Pembayaran manual akan dikonfirmasi melalui WhatsApp. Jangan mengirim pembayaran sebelum menerima instruksi resmi toko.";
+    checkoutSubmit.textContent = method === "gateway" ? "Lanjut ke Pembayaran Online ↗" : "Konfirmasi via WhatsApp ♡";
+  }));
+
+  checkoutForm?.addEventListener("submit", async e => {
+    e.preventDefault();
+    if (!cart.length) return;
+    const method = document.querySelector('input[name="paymentMethod"]:checked')?.value || "manual_qris";
+    const customer = {
+      name: document.getElementById("customerName").value.trim(),
+      phone: document.getElementById("customerPhone").value.trim(),
+      address: document.getElementById("customerAddress").value.trim(),
+      notes: document.getElementById("customerNotes").value.trim()
+    };
+    const total = currentTotal();
+    const order = { customerName: customer.name, phone: customer.phone, address: customer.address, notes: customer.notes, paymentMethod: method, items: cart.map(i => ({name:i.name, price:i.price, qty:i.qty})), total, date:new Date().toISOString() };
+    checkoutSubmit.disabled = true;
+    checkoutStatus.textContent = "Menyiapkan pesanan...";
+    try {
+      if (method === "gateway") {
+        const response = await fetch(API_URL, { method:"POST", headers:{"Content-Type":"text/plain;charset=utf-8"}, body:JSON.stringify({action:"createPayment", order}) });
+        const data = await response.json();
+        if (!data.success || !data.redirect_url) throw new Error(data.error || "Pembayaran online belum dikonfigurasi. Pilih pembayaran manual atau atur Midtrans di Apps Script.");
+        // Backend sudah mencatat pesanan saat membuat transaksi Midtrans.
+        window.location.href = data.redirect_url;
+        return;
+      }
+      await logOrderToBackend(order.items, total, order);
+      const itemLines = cart.map(i => `• ${i.name} x${i.qty} — ${money(i.price*i.qty)}`).join("\n");
+      const methodLabel = method === "manual_qris" ? "QRIS manual" : "Transfer bank / e-wallet";
+      const message = `Halo kak Dira, aku mau pesan dari MYNJU ♡\n\nNama: ${customer.name}\nWhatsApp: ${customer.phone}\nAlamat: ${customer.address}\nMetode pembayaran: ${methodLabel}\n\nPesanan:\n${itemLines}\n\nTotal: ${money(total)}\nCatatan: ${customer.notes || "-"}\n\nMohon kirim instruksi pembayaran resmi ya kak. Terima kasih!`;
+      window.open("https://wa.me/6289516258263?text=" + encodeURIComponent(message), "_blank", "noopener");
+      checkoutStatus.textContent = "Pesanan disiapkan. Selesaikan konfirmasi di WhatsApp.";
+      showToast("Lanjutkan konfirmasi di WhatsApp ♡");
+    } catch (err) {
+      checkoutStatus.textContent = err.message || "Ada kendala. Coba lagi atau pesan via WhatsApp.";
+    } finally { checkoutSubmit.disabled = false; }
+  });
 
   t?.addEventListener("click", openCart);
   c?.addEventListener("click", closeCart);
@@ -195,33 +260,26 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   wa?.addEventListener("click", () => {
-    if (!cart.length) return;
-    let lines = cart.map(i => `${i.name} x${i.qty} - ${money(i.price * i.qty)}`).join("%0A");
-    let tot = cart.reduce((s, i) => s + i.price * i.qty, 0);
-    // Optional: log order to backend
-    logOrderToBackend(cart, tot);
-    window.open("https://wa.me/6289516258263?text=Halo%20kak%20Dira%20aku%20cek%20di%20website%20kamu%20keren%2C%20mau%20dong%20pesan%3A%0A" + lines + "%0ATotal%3A%20" + money(tot), "_blank");
+    if (!cart.length) { showToast("Tas belanja kamu masih kosong ♡"); return; }
+    const tot = currentTotal();
+    logOrderToBackend(cart, tot, {paymentMethod:"whatsapp", notes:"Pesanan langsung via WhatsApp"});
+    const lines = cart.map(i => `• ${i.name} x${i.qty} — ${money(i.price*i.qty)}`).join("\n");
+    const message = `Halo kak Dira, aku mau pesan dari MYNJU ♡\n\n${lines}\n\nTotal: ${money(tot)}\nMohon dibantu ya kak!`;
+    window.open("https://wa.me/6289516258263?text=" + encodeURIComponent(message), "_blank", "noopener");
   });
 
   renderCart();
   window.bindAddToCart = bindAddToCart;
 });
 
-async function logOrderToBackend(cart, total) {
+async function logOrderToBackend(cart, total, details = {}) {
   try {
     await fetch(API_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "logOrder",
-        order: {
-          items: cart,
-          total: total,
-          date: new Date().toISOString()
-        }
-      })
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "logOrder", order: { ...details, items: cart, total, date: new Date().toISOString() } })
     });
-  } catch (e) { /* silent */ }
+  } catch (e) { console.warn("Order belum tercatat di backend", e); }
 }
 
 // ========== ADMIN PANEL (4x click logo) ==========
